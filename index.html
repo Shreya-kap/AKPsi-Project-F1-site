@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 Explorer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #08090f;
+      color: #f0f0f0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    header {
+      background: linear-gradient(90deg, #0d0d1a 0%, #1a0000 50%, #0d0d1a 100%);
+      border-bottom: 1px solid rgba(230,57,70,0.2);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { font-size: 28px; }
+    .logo-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: #e63946; }
+    .logo-sub { font-size: 10px; color: #888; letter-spacing: 3px; }
+
+    nav { display: flex; gap: 8px; }
+    nav button {
+      background: transparent;
+      color: #aaa;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 18px;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 1px;
+      font-size: 13px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    nav button.active {
+      background: #e63946;
+      color: #fff;
+      border-color: #e63946;
+    }
+
+    /* SECTIONS */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* HEADINGS */
+    .section-title {
+      font-size: 32px;
+      font-weight: 900;
+      text-align: center;
+      background: linear-gradient(90deg, #e63946, #ffd700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .section-sub {
+      color: #888;
+      text-align: center;
+      font-size: 14px;
+      margin-bottom: 0;
+    }
+
+    /* CAR SECTION */
+    #car-section { }
+    .car-header { padding: 2rem 1rem 0.5rem; }
+
+    #canvas-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      height: 480px;
+    }
+
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      display: block;
+    }
+
+    #tooltip {
+      display: none;
+      position: fixed;
+      background: rgba(8,9,15,0.97);
+      border: 1px solid #e63946;
+      border-radius: 12px;
+      padding: 16px 20px;
+      width: 290px;
+      z-index: 200;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    #tooltip h3 { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    #tooltip p { font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 8px; }
+    #tooltip .importance { font-size: 12px; color: #ffd700; line-height: 1.5; }
+    #tooltip .importance span { font-weight: 700; }
+
+    .parts-grid {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem 2rem 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .part-card {
+      background: #0d0d1a;
+      border: 1px solid #1e1e2e;
+      border-radius: 10px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .part-card:hover, .part-card.highlighted {
+      background: rgba(230,57,70,0.12);
+      border-color: #e63946;
+    }
+    .part-card-header { display: flex; align-items: center; gap: 8px; }
+    .part-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .part-card h4 { font-size: 14px; font-weight: 700; }
+    .part-card p { font-size: 12px; color: #888; margin-top: 4px; line-height: 1.4; }
+
+    /* TEAMS SECTION */
+    #teams-section { padding: 2rem; max-width: 1100px; margin: 0 auto; }
+    .team-tabs { display: flex; justify-content: center; gap: 12px; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
+    .team-tab {
+      background: #111;
+      color: #aaa;
+      border: 2px solid #333;
+      border-radius: 8px;
+      padding: 10px 22px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+
+    .team-panel { display: none; }
+    .team-panel.active { display: block; }
+
+    .team-banner {
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .team-bio { flex: 1 1 300px; }
+    .team-name { font-size: 24px; font-weight: 900; margin-bottom: 6px; }
+    .team-bio p { font-size: 13px; color: #aaa; line-height: 1.7; }
+    .team-meta { display: flex; flex-wrap: wrap; gap: 12px; flex: 1 1 260px; }
+    .meta-item {
+      background: #0d0d1a;
+      border: 1px solid #1e1e2e;
+      border-radius: 10px;
+      padding: 10px 16px;
+      min-width: 120px;
+    }
+    .meta-label { font-size: 10px; color: #666; letter-spacing: 1px; margin-bottom: 2px; text-transform: uppercase; }
+    .meta-value { font-size: 13px; font-weight: 700; color: #e0e0e0; }
+
+    .drivers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .driver-card {
+      background: #0d0d1a;
+      border-radius: 16px;
+      padding: 24px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+    .driver-card:hover { transform: translateY(-4px); }
+    .driver-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .driver-number { font-size: 42px; font-weight: 900; line-height: 1; }
+    .driver-name { font-size: 20px; font-weight: 800; margin-top: 6px; }
+    .driver-nat { font-size: 13px; color: #aaa; margin-top: 2px; }
+    .driver-team-badge {
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .driver-bio { font-size: 13px; color: #bbb; line-height: 1.6; margin-bottom: 16px; }
+    .driver-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .stat-box { background: #1a1a2e; border-radius: 8px; padding: 10px 8px; text-align: center; }
+    .stat-val { font-size: 20px; font-weight: 900; }
+    .stat-lbl { font-size: 10px; color: #666; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* STATS SECTION */
+    #stats-section { padding: 2rem; max-width: 900px; margin: 0 auto; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #0d0d1a, #12122a);
+      border: 1px solid #1e1e3e;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-icon { font-size: 32px; }
+    .stat-number { font-size: 22px; font-weight: 900; color: #e63946; margin: 8px 0 4px; }
+    .stat-name { font-size: 12px; color: #888; letter-spacing: 1px; }
+
+    .info-box {
+      background: #0d0d1a;
+      border: 1px solid #1e1e2e;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .info-box h2 { font-size: 18px; font-weight: 800; color: #ffd700; margin-bottom: 16px; }
+    .info-box ul { color: #aaa; line-height: 2; padding-left: 20px; }
+
+    .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; overflow-x: auto; display: block; }
+    .compare-table th {
+      padding: 8px 12px;
+      text-align: left;
+      color: #666;
+      font-weight: 700;
+      letter-spacing: 1px;
+      font-size: 11px;
+      border-bottom: 1px solid #222;
+      text-transform: uppercase;
+    }
+    .compare-table td { padding: 12px; border-bottom: 1px solid #111; color: #ccc; }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #333;
+      font-size: 12px;
+      border-top: 1px solid #111;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <span class="logo-icon">🏎️</span>
+      <div>
+        <div class="logo-title">F1 EXPLORER</div>
+        <div class="logo-sub">INTERACTIVE GUIDE</div>
+      </div>
+    </div>
+    <nav>
+      <button class="active" data-section="car-section">🚗 Car</button>
+      <button data-section="teams-section">👨‍🏎️ Teams</button>
+      <button data-section="stats-section">📊 Stats</button>
+    </nav>
+  </header>
+
+  <!-- TOOLTIP -->
+  <div id="tooltip">
+    <h3 id="tooltip-title"></h3>
+    <p id="tooltip-desc"></p>
+    <div class="importance"><span>Why it matters: </span><span id="tooltip-importance"></span></div>
+  </div>
+
+  <!-- CAR SECTION -->
+  <div id="car-section" class="section active">
+    <div class="car-header">
+      <div class="section-title">F1 CAR ANATOMY</div>
+      <div class="section-sub">Drag to rotate · Hover the glowing dots to explore car parts</div>
+    </div>
+    <div id="canvas-wrapper">
+      <canvas id="three-canvas"></canvas>
+    </div>
+    <div class="parts-grid" id="parts-grid"></div>
+  </div>
+
+  <!-- TEAMS SECTION -->
+  <div id="teams-section" class="section">
+    <div class="section-title">TEAMS &amp; DRIVERS</div>
+    <div class="section-sub">2025 season · Red Bull, Ferrari &amp; McLaren</div>
+    <div class="team-tabs" id="team-tabs"></div>
+    <div id="team-panels"></div>
+  </div>
+
+  <!-- STATS SECTION -->
+  <div id="stats-section" class="section">
+    <div class="section-title">F1 CAR SPECIFICATIONS</div>
+    <div class="section-sub" style="margin-bottom:2rem;">2025 regulation — key technical figures</div>
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="info-box">
+      <h2>🏆 Team Comparison (2025)</h2>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Team</th><th>Chassis</th><th>Engine</th><th>2024 WCC</th><th>Strengths</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:800;color:#3062B8;">Red Bull</td>
+            <td>RB21</td><td>Honda RBPTH002</td><td>2nd</td><td>Aerodynamic efficiency, race pace</td>
+          </tr>
+          <tr>
+            <td style="font-weight:800;color:#E8002D;">Ferrari</td>
+            <td>SF-25</td><td>Ferrari 066/14</td><td>3rd</td><td>Straight-line speed, qualifying</td>
+          </tr>
+          <tr>
+            <td style="font-weight:800;color:#FF8000;">McLaren</td>
+            <td>MCL39</td><td>Mercedes M16</td><td style="color:#ffd700;font-weight:800;">1st ✓</td><td>Tyre management, overall pace</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-box">
+      <h2>⚙️ Regulation Highlights (2025)</h2>
+      <ul>
+        <li>Ground effect aerodynamics — venturi tunnels under the floor create most downforce</li>
+        <li>1.6L V6 hybrid power unit — max 15,000 RPM</li>
+        <li>MGU-K limited to 120kW (160hp) electrical deployment</li>
+        <li>18-inch low-profile Pirelli tires introduced in 2022</li>
+        <li>Minimum weight: 798 kg (car + driver)</li>
+        <li>Cost cap: $135M for constructors (2025)</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>F1 Explorer · Built with Three.js · Educational project · AKPsi</footer>
+
+  <script>
+    // ─── DATA ────────────────────────────────────────────────────────────────
+
+    const CAR_PARTS = [
+      { id: "front_wing",  label: "Front Wing",      color: 0xe63946, hex: "#e63946", pos: [2.6, -0.15, 0],
+        description: "The front wing generates downforce to keep the car planted at the front axle.",
+        importance: "It controls airflow under the car and to the sidepods. Even a 10mm change in angle can shift the car's balance completely." },
+      { id: "rear_wing",   label: "Rear Wing",       color: 0xe63946, hex: "#e63946", pos: [-2.6, 0.35, 0],
+        description: "The rear wing creates massive downforce at the back of the car.",
+        importance: "More wing = more grip in corners, less top speed on straights. Teams tune it differently for every circuit." },
+      { id: "engine",      label: "Power Unit",      color: 0xffd700, hex: "#ffd700", pos: [-0.3, 0.05, 0],
+        description: "A 1.6L turbocharged V6 hybrid producing ~1000 horsepower.",
+        importance: "The power unit combines an internal combustion engine with two electric motors — MGU-K and MGU-H — for peak efficiency and performance." },
+      { id: "tires",       label: "Tires",           color: 0x888888, hex: "#888888", pos: [1.8, -0.45, 1.1],
+        description: "Pirelli supplies five compounds — from hard to soft — each with different grip and wear characteristics.",
+        importance: "Tires are the only contact point with the track. Tire management is often the biggest factor in race strategy." },
+      { id: "cockpit",     label: "Cockpit & Halo",  color: 0x00b4d8, hex: "#00b4d8", pos: [0.4, 0.42, 0],
+        description: "The driver sits in a custom carbon-fiber seat inside a survival cell. The Halo is a titanium safety structure above the cockpit.",
+        importance: "The Halo has saved multiple lives since 2018. The survival cell is designed to withstand 25G impacts." },
+      { id: "floor",       label: "Floor & Diffuser",color: 0x2ec4b6, hex: "#2ec4b6", pos: [0, -0.5, 0],
+        description: "The floor creates ground effect — low pressure under the car sucks it to the track.",
+        importance: "Since 2022 regulations, the floor generates more downforce than wings. A damaged floor can lose hundreds of kg of downforce instantly." },
+      { id: "sidepods",    label: "Sidepods",        color: 0x9b5de5, hex: "#9b5de5", pos: [0, 0.05, 0.85],
+        description: "The sidepods house the radiators and direct airflow through and around the car.",
+        importance: "Sidepod design is one of the biggest areas of differentiation between teams. Red Bull's 'zero sidepod' concept gave them a huge aero advantage." },
+    ];
+
+    const TEAMS = [
+      {
+        id: "redbull", name: "Red Bull Racing", color: "#3062B8",
+        base: "Milton Keynes, UK", chassis: "RB21", engine: "Honda RBPTH002",
+        titles: "6 Constructors' (incl. 2022–23)",
+        bio: "The dominant force of the turbo-hybrid era. Known for aerodynamic innovation and Max Verstappen's historic run of championships.",
+        drivers: [
+          { name: "Max Verstappen", number: 1, nat: "🇳🇱", titles: 4, wins: "63", podiums: "110+",
+            bio: "Four-time world champion and the fastest qualifier in the modern era. Clinical, relentless, and the benchmark for every driver on the grid." },
+          { name: "Sergio Pérez",   number: 11, nat: "🇲🇽", titles: 0, wins: "6",  podiums: "40+",
+            bio: "Veteran of 14 seasons, known for tire management and late-race heroics. Crucial for Red Bull's constructors' championship campaigns." },
+        ]
+      },
+      {
+        id: "ferrari", name: "Scuderia Ferrari", color: "#E8002D",
+        base: "Maranello, Italy", chassis: "SF-25", engine: "Ferrari 066/14",
+        titles: "16 Constructors' (most in F1 history)",
+        bio: "The most iconic team in Formula 1. Tifosi worldwide follow every race. Hamilton's arrival in 2025 raised expectations massively.",
+        drivers: [
+          { name: "Lewis Hamilton", number: 44, nat: "🇬🇧", titles: 7, wins: "104", podiums: "197",
+            bio: "The most decorated driver in F1 history. Joined Ferrari in 2025 seeking an 8th title — the move that shocked the world." },
+          { name: "Charles Leclerc", number: 16, nat: "🇲🇨", titles: 0, wins: "8",  podiums: "40+",
+            bio: "Ferrari's homegrown star. Blistering one-lap pace and a fierce competitor, but still hunting for his first championship." },
+        ]
+      },
+      {
+        id: "mclaren", name: "McLaren F1 Team", color: "#FF8000",
+        base: "Woking, UK", chassis: "MCL39", engine: "Mercedes M16",
+        titles: "8 Constructors' (last: 1998)",
+        bio: "The great F1 comeback story. After years of struggle, McLaren rebuilt into a race-winning force — now a genuine title contender.",
+        drivers: [
+          { name: "Lando Norris",  number: 4,  nat: "🇬🇧", titles: 0, wins: "6",  podiums: "30+",
+            bio: "The fan favourite turned genuine title contender. Quick, exciting to watch, and finally has the car to match his talent." },
+          { name: "Oscar Piastri", number: 81, nat: "🇦🇺", titles: 0, wins: "4",  podiums: "20+",
+            bio: "Rookie sensation turned race winner. Calm, precise and frighteningly fast — already one of the most complete drivers on the grid." },
+        ]
+      },
+    ];
+
+    const CAR_STATS = [
+      { label: "Power Output",    value: "~1000 hp",       icon: "⚡" },
+      { label: "Top Speed",       value: "375 km/h",       icon: "🏎️" },
+      { label: "0–100 km/h",      value: "2.6 sec",        icon: "⏱️" },
+      { label: "Weight",          value: "798 kg",         icon: "⚖️" },
+      { label: "Downforce",       value: "3500+ kg",       icon: "↓" },
+      { label: "G-Force (corner)","value": "up to 6G",     icon: "🌀" },
+      { label: "Fuel Capacity",   value: "110 kg",         icon: "⛽" },
+      { label: "Braking Distance",value: "17m @ 300km/h",  icon: "🛑" },
+    ];
+
+    // ─── NAV ─────────────────────────────────────────────────────────────────
+
+    document.querySelectorAll('nav button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.section).classList.add('active');
+      });
+    });
+
+    // ─── PARTS GRID ──────────────────────────────────────────────────────────
+
+    const partsGrid = document.getElementById('parts-grid');
+    CAR_PARTS.forEach(part => {
+      const card = document.createElement('div');
+      card.className = 'part-card';
+      card.id = 'card-' + part.id;
+      card.innerHTML = `
+        <div class="part-card-header">
+          <span class="part-dot" style="background:${part.hex}"></span>
+          <h4>${part.label}</h4>
+        </div>
+        <p>${part.description}</p>
+      `;
+      card.addEventListener('mouseenter', () => showTooltipForPart(part));
+      card.addEventListener('mouseleave', hideTooltip);
+      partsGrid.appendChild(card);
+    });
+
+    // ─── THREE.JS ────────────────────────────────────────────────────────────
+
+    const canvas = document.getElementById('three-canvas');
+    const wrapper = document.getElementById('canvas-wrapper');
+
+    const scene    = new THREE.Scene();
+    scene.background = new THREE.Color(0x08090f);
+
+    const camera   = new THREE.PerspectiveCamera(45, wrapper.clientWidth / wrapper.clientHeight, 0.1, 100);
+    camera.position.set(0, 2.5, 8);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2); dir.position.set(5,8,5); scene.add(dir);
+    const rim = new THREE.DirectionalLight(0xe63946, 0.4); rim.position.set(-5,2,-3); scene.add(rim);
+    const fill= new THREE.DirectionalLight(0x00b4d8, 0.25);fill.position.set(0,-3,5); scene.add(fill);
+
+    const grid = new THREE.GridHelper(20, 30, 0x222244, 0x1a1a2e);
+    grid.position.y = -0.85;
+    scene.add(grid);
+
+    function mat(color, opacity) {
+      opacity = opacity === undefined ? 1 : opacity;
+      return new THREE.MeshPhongMaterial({ color, opacity, transparent: opacity < 1, shininess: 120 });
+    }
+
+    // Build car
+    function addMesh(geo, material, x, y, z, rx, ry, rz) {
+      const m = new THREE.Mesh(geo, material);
+      m.position.set(x || 0, y || 0, z || 0);
+      if (rx) m.rotation.x = rx;
+      if (ry) m.rotation.y = ry;
+      if (rz) m.rotation.z = rz;
+      scene.add(m);
+      return m;
+    }
+
+    addMesh(new THREE.BoxGeometry(4.2, 0.38, 0.7),  mat(0x1a1a2e), -0.1, 0, 0);
+    addMesh(new THREE.CylinderGeometry(0.08,0.28,1.1,8), mat(0x1a1a2e), 2.25, 0.02, 0, 0,0,Math.PI/2);
+    addMesh(new THREE.BoxGeometry(0.9, 0.32, 0.55), mat(0x16213e), 0.4, 0.33, 0);
+    addMesh(new THREE.TorusGeometry(0.28,0.04,8,20,Math.PI), mat(0xc0c0c0), 0.4,0.52,0, Math.PI/2,0,-Math.PI/2);
+    addMesh(new THREE.BoxGeometry(1.6, 0.55, 0.62), mat(0x0f3460), -1.2, 0.13, 0);
+    addMesh(new THREE.BoxGeometry(0.12,0.07,1.8),   mat(0xe63946), 2.62,-0.14, 0);
+    [-0.9,0.9].forEach(z => addMesh(new THREE.BoxGeometry(0.55,0.14,0.05), mat(0xe63946), 2.42,-0.1,z));
+    addMesh(new THREE.BoxGeometry(0.1,0.08,1.6),    mat(0xe63946),-2.6, 0.35, 0);
+    [-0.8,0.8].forEach(z => addMesh(new THREE.BoxGeometry(0.18,0.5,0.06),  mat(0xe63946),-2.6, 0.12, z));
+    addMesh(new THREE.BoxGeometry(0.9,0.18,0.72),   mat(0x2ec4b6),-2.05,-0.27,0);
+    [-1,1].forEach(s => addMesh(new THREE.BoxGeometry(1.5,0.38,0.32), mat(0x0d1b2a),-0.15,0.04,s*0.65));
+    addMesh(new THREE.BoxGeometry(3.8,0.05,1.2),    mat(0x111111),-0.1,-0.2, 0);
+
+    [[1.75,-0.44,1.05],[1.75,-0.44,-1.05],[-1.65,-0.44,1.0],[-1.65,-0.44,-1.0]].forEach(([x,y,z]) => {
+      addMesh(new THREE.CylinderGeometry(0.38,0.38,0.32,20), mat(0x222222), x,y,z, Math.PI/2);
+      addMesh(new THREE.CylinderGeometry(0.22,0.22,0.33,12), mat(0xcccccc), x,y,z, Math.PI/2);
+    });
+    [[1.75,-0.18,0.55],[-1.65,-0.18,0.55]].forEach(([x,y,z]) => {
+      addMesh(new THREE.CylinderGeometry(0.02,0.02,0.9,6), mat(0x888888), x,y,z, 0,0,Math.PI/2);
+    });
+
+    // Hotspots
+    const hotspots = [];
+    CAR_PARTS.forEach(part => {
+      const hs = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2,12,12),
+        new THREE.MeshPhongMaterial({ color: part.color, transparent: true, opacity: 0.55, emissive: part.color, emissiveIntensity: 0.4 })
+      );
+      hs.position.set(...part.pos);
+      hs.userData.partId = part.id;
+      scene.add(hs);
+      hotspots.push(hs);
+    });
+
+    // Rotation
+    let isDragging = false, prevX = 0, prevY = 0;
+    const rotation = { x: 0.18, y: 0 };
+
+    canvas.addEventListener('mousedown', e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; canvas.style.cursor='grabbing'; });
+    window.addEventListener('mouseup', () => { isDragging = false; canvas.style.cursor='grab'; });
+
+    // Raycasting & tooltip
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+
+    function showTooltipForPart(part, x, y) {
+      document.getElementById('tooltip-title').textContent = part.label;
+      document.getElementById('tooltip-desc').textContent  = part.description;
+      document.getElementById('tooltip-importance').textContent = part.importance;
+      tooltip.style.borderColor = part.hex;
+      tooltip.style.display = 'block';
+      if (x !== undefined) {
+        tooltip.style.left = Math.min(x + 18, window.innerWidth - 310) + 'px';
+        tooltip.style.top  = Math.max(y - 10, 70) + 'px';
+      }
+      document.querySelectorAll('.part-card').forEach(c => c.classList.remove('highlighted'));
+      const card = document.getElementById('card-' + part.id);
+      if (card) card.classList.add('highlighted');
+    }
+
+    function hideTooltip() {
+      tooltip.style.display = 'none';
+      document.querySelectorAll('.part-card').forEach(c => c.classList.remove('highlighted'));
+    }
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+      mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
+
+      if (isDragging) {
+        rotation.y += (e.clientX - prevX) * 0.008;
+        rotation.x += (e.clientY - prevY) * 0.005;
+        rotation.x = Math.max(-0.6, Math.min(0.6, rotation.x));
+        prevX = e.clientX; prevY = e.clientY;
+        return;
+      }
+
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(hotspots);
+      if (hits.length > 0) {
+        const part = CAR_PARTS.find(p => p.id === hits[0].object.userData.partId);
+        showTooltipForPart(part, e.clientX, e.clientY);
+        canvas.style.cursor = 'pointer';
+      } else {
+        hideTooltip();
+        canvas.style.cursor = 'grab';
+      }
+    });
+    canvas.addEventListener('mouseleave', hideTooltip);
+
+    // Animate
+    function animate() {
+      requestAnimationFrame(animate);
+      if (!isDragging) rotation.y += 0.003;
+      scene.rotation.y = rotation.y;
+      scene.rotation.x = rotation.x;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = wrapper.clientWidth / wrapper.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+    });
+
+    // ─── TEAMS ───────────────────────────────────────────────────────────────
+
+    const tabsEl   = document.getElementById('team-tabs');
+    const panelsEl = document.getElementById('team-panels');
+
+    TEAMS.forEach((team, i) => {
+      // Tab button
+      const tab = document.createElement('button');
+      tab.className = 'team-tab' + (i === 0 ? ' active' : '');
+      tab.textContent = team.name;
+      tab.style.borderColor = i === 0 ? team.color : '#333';
+      tab.style.background  = i === 0 ? team.color : '#111';
+      tab.style.color       = i === 0 ? (team.id === 'mclaren' ? '#000' : '#fff') : '#aaa';
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.team-tab').forEach((t, j) => {
+          const tm = TEAMS[j];
+          t.classList.remove('active');
+          t.style.background  = '#111';
+          t.style.borderColor = '#333';
+          t.style.color       = '#aaa';
+        });
+        document.querySelectorAll('.team-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        tab.style.background  = team.color;
+        tab.style.borderColor = team.color;
+        tab.style.color       = team.id === 'mclaren' ? '#000' : '#fff';
+        document.getElementById('panel-' + team.id).classList.add('active');
+      });
+      tabsEl.appendChild(tab);
+
+      // Panel
+      const panel = document.createElement('div');
+      panel.className = 'team-panel' + (i === 0 ? ' active' : '');
+      panel.id = 'panel-' + team.id;
+
+      panel.innerHTML = `
+        <div class="team-banner" style="background:linear-gradient(135deg,${team.color}22,#0d0d1a);border:1px solid ${team.color}55;">
+          <div class="team-bio">
+            <div class="team-name" style="color:${team.color};">${team.name}</div>
+            <p>${team.bio}</p>
+          </div>
+          <div class="team-meta">
+            <div class="meta-item"><div class="meta-label">Base</div><div class="meta-value">${team.base}</div></div>
+            <div class="meta-item"><div class="meta-label">Chassis</div><div class="meta-value">${team.chassis}</div></div>
+            <div class="meta-item"><div class="meta-label">Engine</div><div class="meta-value">${team.engine}</div></div>
+            <div class="meta-item"><div class="meta-label">Titles</div><div class="meta-value">${team.titles}</div></div>
+          </div>
+        </div>
+        <div class="drivers-grid">
+          ${team.drivers.map(d => `
+            <div class="driver-card" style="border:1px solid ${team.color}44;"
+                 onmouseenter="this.style.boxShadow='0 12px 32px ${team.color}33'"
+                 onmouseleave="this.style.boxShadow='none'">
+              <div class="driver-top">
+                <div>
+                  <div class="driver-number" style="color:${team.color};">#${d.number}</div>
+                  <div class="driver-name">${d.name}</div>
+                  <div class="driver-nat">${d.nat}</div>
+                </div>
+                <div class="driver-team-badge" style="background:${team.color}22;border:1px solid ${team.color}44;color:${team.color};">${team.name}</div>
+              </div>
+              <div class="driver-bio">${d.bio}</div>
+              <div class="driver-stats">
+                <div class="stat-box"><div class="stat-val" style="color:${team.color};">${d.titles}</div><div class="stat-lbl">Titles</div></div>
+                <div class="stat-box"><div class="stat-val" style="color:${team.color};">${d.wins}</div><div class="stat-lbl">Wins</div></div>
+                <div class="stat-box"><div class="stat-val" style="color:${team.color};">${d.podiums}</div><div class="stat-lbl">Podiums</div></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      panelsEl.appendChild(panel);
+    });
+
+    // ─── STATS ───────────────────────────────────────────────────────────────
+
+    const statsGrid = document.getElementById('stats-grid');
+    CAR_STATS.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'stat-card';
+      card.innerHTML = `
+        <div class="stat-icon">${s.icon}</div>
+        <div class="stat-number">${s.value}</div>
+        <div class="stat-name">${s.label}</div>
+      `;
+      statsGrid.appendChild(card);
+    });
+  </script>
+</body>
+</html>
